@@ -323,6 +323,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-test-helper"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91d349b3174ceac58442ea1f768233c817e59447c0343be2584fca9f0ed71d3a"
+dependencies = [
+ "axum",
+ "bytes",
+ "http",
+ "http-body",
+ "hyper",
+ "reqwest",
+ "serde",
+ "tokio",
+ "tower",
+ "tower-service",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4396,6 +4414,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "once_cell",
  "percent-encoding",
@@ -4405,6 +4424,7 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -5303,6 +5323,7 @@ dependencies = [
  "axum-extra",
  "axum-macros",
  "axum-sessions",
+ "axum-test-helper",
  "base64 0.13.1",
  "bcrypt",
  "chrono",

@@ -215,7 +215,7 @@ pub async fn init_db() {
 		}
 	}
 
-	let test_ctx = Ctx::mock().await;
+	let test_ctx = Ctx::_mock();
 
 	let client = test_ctx.get_db();
 
@@ -354,7 +354,7 @@ pub async fn create_library(
 	let library = library.unwrap();
 
 	if scan_mode != LibraryScanMode::None {
-		let ctx = Ctx::mock().await;
+		let ctx = Ctx::_mock();
 		run_test_scan(&ctx, &library, scan_mode)
 			.await
 			.expect("Failed to scan library");

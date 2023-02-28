@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use prisma_client_rust::MockStore;
 use tokio::sync::{
 	broadcast::{channel, Receiver, Sender},
 	mpsc::{error::SendError, unbounded_channel, UnboundedSender},
@@ -9,7 +10,7 @@ use crate::{
 	db::{self, models::Log},
 	event::{CoreEvent, InternalCoreTask},
 	job::Job,
-	prisma,
+	prisma::{self, PrismaClient},
 };
 
 type InternalSender = UnboundedSender<InternalCoreTask>;
@@ -22,7 +23,9 @@ type ClientChannel = (Sender<CoreEvent>, Receiver<CoreEvent>);
 /// to all the different parts of the application, and is used to access the database
 /// and manage the event channels.
 pub struct Ctx {
-	pub db: Arc<prisma::PrismaClient>,
+	pub db: Arc<PrismaClient>,
+	/// Mock store for testing only. It is not used outside of tests.
+	pub mock_store: Option<Arc<MockStore>>,
 	pub internal_sender: Arc<InternalSender>,
 	pub response_channel: Arc<ClientChannel>,
 }
@@ -52,18 +55,18 @@ impl Ctx {
 	pub async fn new(internal_sender: InternalSender) -> Ctx {
 		Ctx {
 			db: Arc::new(db::create_client().await),
+			mock_store: None,
 			internal_sender: Arc::new(internal_sender),
 			response_channel: Arc::new(channel::<CoreEvent>(1024)),
 		}
 	}
 
-	/// Creates a [Ctx] instance for testing **only**. The prisma client is created
-	/// pointing to the `integration-tests` crate relative to the `core` crate.
-	///
-	/// **This should not be used in production.**
-	pub async fn mock() -> Ctx {
+	/// Creates a [Ctx] instance for testing **only**.
+	pub fn _mock() -> Ctx {
+		let (client, mock_store) = db::create_mocked_prisma();
 		Ctx {
-			db: Arc::new(db::create_test_client().await),
+			db: Arc::new(client),
+			mock_store: Some(Arc::new(mock_store)),
 			internal_sender: Arc::new(unbounded_channel::<InternalCoreTask>().0),
 			response_channel: Arc::new(channel::<CoreEvent>(1024)),
 		}
@@ -102,6 +105,7 @@ impl Ctx {
 	pub fn get_ctx(&self) -> Ctx {
 		Ctx {
 			db: self.db.clone(),
+			mock_store: self.mock_store.clone(),
 			internal_sender: self.internal_sender.clone(),
 			response_channel: self.response_channel.clone(),
 		}

@@ -1,4 +1,5 @@
 use axum_sessions::extractors::{ReadableSession, WritableSession};
+use bcrypt::BcryptError;
 use stump_core::{db::models::User, prelude::DecodedCredentials};
 
 use crate::errors::{ApiError, ApiResult, AuthError};
@@ -8,6 +9,10 @@ pub fn get_hash_cost() -> u32 {
 		.unwrap_or_else(|_e| "12".to_string())
 		.parse()
 		.unwrap_or(12)
+}
+
+pub fn hash_password(password: &str) -> Result<String, BcryptError> {
+	bcrypt::hash(password, get_hash_cost())
 }
 
 pub fn verify_password(hash: &str, password: &str) -> Result<bool, AuthError> {

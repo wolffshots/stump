@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use axum::Router;
 use errors::{ServerError, ServerResult};
 use stump_core::{config::logging::init_tracing, StumpCore};
 use tower_http::trace::TraceLayer;
@@ -12,7 +11,7 @@ mod middleware;
 mod routers;
 mod utils;
 
-use config::{cors, session};
+use routers::get_app_router;
 
 fn debug_setup() {
 	std::env::set_var(
@@ -55,7 +54,7 @@ async fn main() -> ServerResult<()> {
 
 	let server_ctx = core.get_context();
 	let app_state = server_ctx.arced();
-	let cors_layer = cors::get_cors_layer(port);
+	let app_router = get_app_router(app_state, port);
 
 	info!("{}", core.get_shadow_text());
 
@@ -72,7 +71,7 @@ async fn main() -> ServerResult<()> {
 	info!("⚡️ Stump HTTP server starting on http://{}", addr);
 
 	axum::Server::bind(&addr)
-		.serve(app.into_make_service())
+		.serve(app_router.into_make_service())
 		.with_graceful_shutdown(utils::shutdown_signal())
 		.await
 		.expect("Failed to start Stump HTTP server!");

@@ -2,6 +2,7 @@ use std::{env, time::Duration};
 
 use axum_sessions::{async_session::MemoryStore, SameSite, SessionLayer};
 use rand::{thread_rng, Rng};
+use stump_core::db::models::User;
 
 fn rand_secret() -> Vec<u8> {
 	let mut rng = thread_rng();
@@ -41,4 +42,28 @@ pub fn get_session_layer() -> SessionLayer<MemoryStore> {
 	// 		.with_same_site_policy(SameSite::Lax)
 	// 		.with_secure(false)
 	// }
+}
+
+pub fn get_test_session_layer(
+	existing_users: Option<Vec<User>>,
+) -> SessionLayer<MemoryStore> {
+	// TODO: mock this store??
+	let store = MemoryStore::new();
+
+	if let Some(users) = existing_users {
+		for user in users {}
+	}
+
+	let secret = env::var("SESSION_SECRET")
+		.map(|s| s.into_bytes())
+		.unwrap_or_else(|_| rand_secret());
+
+	let sesssion_layer = SessionLayer::new(store, &secret)
+		.with_cookie_name("stump_session")
+		.with_session_ttl(Some(Duration::from_secs(3600 * 24 * 3)))
+		.with_cookie_path("/");
+
+	sesssion_layer
+		.with_same_site_policy(SameSite::Lax)
+		.with_secure(false)
 }

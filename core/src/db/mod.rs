@@ -4,14 +4,17 @@ pub mod models;
 pub mod utils;
 
 pub use dao::*;
+use prisma_client_rust::MockStore;
 
-use std::path::Path;
 use tracing::trace;
 
-use crate::{config::get_config_dir, prisma};
+use crate::{
+	config::get_config_dir,
+	prisma::{self, PrismaClient},
+};
 
 /// Creates the PrismaClient. Will call `create_data_dir` as well
-pub async fn create_client() -> prisma::PrismaClient {
+pub async fn create_client() -> PrismaClient {
 	let config_dir = get_config_dir()
 		.to_str()
 		.expect("Error parsing config directory")
@@ -43,14 +46,16 @@ pub async fn create_client() -> prisma::PrismaClient {
 	}
 }
 
-pub async fn create_client_with_url(url: &str) -> prisma::PrismaClient {
+pub async fn create_client_with_url(url: &str) -> PrismaClient {
 	prisma::new_client_with_url(url)
 		.await
 		.expect("Failed to create Prisma client")
 }
 
-pub async fn create_test_client() -> prisma::PrismaClient {
-	let test_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("integration-tests");
-
-	create_client_with_url(&format!("file:{}/test.db", test_dir.to_str().unwrap())).await
+// TODO: I'll have to rework the integration test mock because I do want real DB action
+// there I believe? We'll see, perhaps I don't :D
+pub fn create_mocked_prisma() -> (PrismaClient, MockStore) {
+	// let test_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("integration-tests");
+	// create_client_with_url(&format!("file:{}/test.db", test_dir.to_str().unwrap())).await
+	PrismaClient::_mock()
 }

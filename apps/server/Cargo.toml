@@ -48,6 +48,9 @@ thiserror = { workspace = true }
 bcrypt = "0.10.1"
 base64 = "0.13.0"
 
+[dev-dependencies]
+axum-test-helper = "0.2.0"
+
 ### Platform Specific Deps ###
 [target.aarch64-unknown-linux-musl.dependencies]
 openssl = { version = "0.10.40", features = ["vendored"] }
