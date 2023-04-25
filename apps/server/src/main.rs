@@ -2,7 +2,6 @@ use std::net::SocketAddr;
 
 use errors::{ServerError, ServerResult};
 use stump_core::{config::logging::init_tracing, StumpCore};
-use tower_http::trace::TraceLayer;
 use tracing::{error, info, trace};
 
 mod config;
@@ -57,15 +56,6 @@ async fn main() -> ServerResult<()> {
 	let app_router = get_app_router(app_state, port);
 
 	info!("{}", core.get_shadow_text());
-
-	let app = Router::new()
-		.merge(routers::mount(app_state.clone()))
-		.with_state(app_state.clone())
-		.layer(session::get_session_layer())
-		.layer(cors_layer)
-		// TODO: not sure if it needs to be done in here or stump_core::config::logging,
-		// but I want to ignore traces for asset requests, e.g. /assets/chunk-SRMZVY4F.02115dd3.js lol
-		.layer(TraceLayer::new_for_http());
 
 	let addr = SocketAddr::from(([0, 0, 0, 0], port));
 	info!("⚡️ Stump HTTP server starting on http://{}", addr);

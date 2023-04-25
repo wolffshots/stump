@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 use crate::prisma;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, ToSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Type, ToSchema)]
 pub struct User {
 	pub id: String,
 	pub username: String,

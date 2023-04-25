@@ -1,13 +1,10 @@
 use std::env;
 
 use axum::Router;
-use stump_core::db::models::User;
+use tower_http::trace::TraceLayer;
 
 use crate::config::{
-	cors::get_cors_layer,
-	session::{get_session_layer, get_test_session_layer},
-	state::AppState,
-	utils::is_debug,
+	cors::get_cors_layer, session::get_session_layer, state::AppState, utils::is_debug,
 };
 
 mod api;
@@ -22,20 +19,11 @@ pub(crate) fn get_app_router(app_state: AppState, port: u16) -> Router {
 
 	Router::new()
 		.merge(mount(app_state.clone()))
-		.with_state(app_state.clone())
+		.with_state(app_state)
 		.layer(get_session_layer())
 		.layer(cors_layer)
-}
-
-#[allow(unused)]
-pub(crate) fn get_test_router(
-	app_state: AppState,
-	user_sessions: Option<Vec<User>>,
-) -> Router {
-	Router::new()
-		.merge(mount(app_state.clone()))
-		.with_state(app_state.clone())
-		.layer(get_test_session_layer(user_sessions))
+		// TODO: I want to ignore traces for asset requests, e.g. /assets/chunk-SRMZVY4F.02115dd3.js
+		.layer(TraceLayer::new_for_http())
 }
 
 pub(crate) fn mount(app_state: AppState) -> Router<AppState> {
@@ -43,6 +31,7 @@ pub(crate) fn mount(app_state: AppState) -> Router<AppState> {
 
 	let enable_swagger =
 		env::var("ENABLE_SWAGGER_UI").unwrap_or_else(|_| String::from("true"));
+
 	if enable_swagger != "false" || is_debug() {
 		app_router = app_router.merge(utoipa::mount(app_state.clone()));
 	}
@@ -53,4 +42,16 @@ pub(crate) fn mount(app_state: AppState) -> Router<AppState> {
 		.merge(sse::mount())
 		.merge(api::mount(app_state.clone()))
 		.merge(opds::mount(app_state))
+}
+
+#[cfg(test)]
+pub(crate) fn get_test_router(app_state: AppState) -> Router {
+	use crate::{
+		config::session::get_test_session_layer, utils::test::fake_login_handler,
+	};
+	Router::new()
+		.merge(mount(app_state.clone()))
+		.route("/fake-login", axum::routing::post(fake_login_handler))
+		.with_state(app_state.clone())
+		.layer(get_test_session_layer())
 }

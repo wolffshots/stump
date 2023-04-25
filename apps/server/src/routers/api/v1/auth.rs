@@ -13,7 +13,7 @@ use stump_core::{
 use crate::{
 	config::state::AppState,
 	errors::{ApiError, ApiResult},
-	utils::{hash_password, verify_password},
+	utils::{get_writable_session_user, hash_password, verify_password},
 };
 
 pub(crate) fn mount() -> Router<AppState> {
@@ -106,6 +106,8 @@ async fn login(
 )]
 /// Destroys the session and logs the user out.
 async fn logout(mut session: WritableSession) -> ApiResult<()> {
+	// This is to enforce only logged in users can log out.
+	get_writable_session_user(&session)?;
 	session.destroy();
 	if !session.is_destroyed() {
 		return Err(ApiError::InternalServerError(
@@ -201,41 +203,34 @@ mod tests {
 	use crate::{
 		config::state::{AppState, AppStateMock},
 		routers::get_test_router,
-		utils::hash_password,
+		utils::test::{fake_login, fake_prisma_user},
 	};
-
-	fn fake_user(username: &str) -> user::Data {
-		user::Data {
-			id: "test".to_string(),
-			username: username.to_string(),
-			hashed_password: hash_password("test").unwrap(),
-			role: "test".to_string(),
-			user_preferences: None,
-			read_progresses: None,
-			reading_lists: None,
-			user_preferences_id: None,
-		}
-	}
 
 	#[tokio::test]
 	async fn viewer_with_valid_session() {
 		let mock_state = AppState::_mock();
-		let router = get_test_router(mock_state.clone(), None);
+		let router = get_test_router(mock_state.clone());
 		let app = TestClient::new(router);
-		// FIXME: this is private! I need to figure out how to fake a session...
-		// let session_handle = session_layer.load_or_create(cookie_value.clone()).await;
-		todo!()
+		fake_login(&app, false).await;
+
+		let res = app.get("/api/v1/auth/me").send().await;
+		assert_eq!(res.status(), StatusCode::OK);
 	}
 
 	#[tokio::test]
 	async fn viewer_without_valid_session() {
-		todo!()
+		let mock_state = AppState::_mock();
+		let router = get_test_router(mock_state.clone());
+		let app = TestClient::new(router);
+
+		let res = app.get("/api/v1/auth/me").send().await;
+		assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 	}
 
 	#[tokio::test]
 	async fn login_user_without_failure() {
 		let mock_state = AppState::_mock();
-		let router = get_test_router(mock_state.clone(), None);
+		let router = get_test_router(mock_state.clone());
 		let app = TestClient::new(router);
 
 		let mock_store = mock_state.mock_store.clone().unwrap();
@@ -247,7 +242,7 @@ mod tests {
 					.user()
 					.find_unique(user::username::equals("test".to_string()))
 					.with(user::user_preferences::fetch()),
-				Some(fake_user("test")),
+				Some(fake_prisma_user("test")),
 			)
 			.await;
 
@@ -266,7 +261,7 @@ mod tests {
 	#[tokio::test]
 	async fn login_user_with_user_not_found_failure() {
 		let mock_state = AppState::_mock();
-		let router = get_test_router(mock_state.clone(), None);
+		let router = get_test_router(mock_state.clone());
 		let app = TestClient::new(router);
 
 		let mock_store = mock_state.mock_store.clone().unwrap();
@@ -293,31 +288,55 @@ mod tests {
 
 	#[tokio::test]
 	async fn logout_user_wihout_failure() {
-		todo!()
+		let mock_state = AppState::_mock();
+		let router = get_test_router(mock_state.clone());
+		let app = TestClient::new(router);
+		fake_login(&app, false).await;
+
+		let res = app.post("/api/v1/auth/logout").send().await;
+		assert_eq!(res.status(), StatusCode::OK);
+
+		let viewer_res = app.get("/api/v1/auth/me").send().await;
+		assert_eq!(viewer_res.status(), StatusCode::UNAUTHORIZED);
 	}
 
 	#[tokio::test]
 	async fn logout_user_with_failure() {
-		todo!()
+		let mock_state = AppState::_mock();
+		let router = get_test_router(mock_state.clone());
+		let app = TestClient::new(router);
+
+		let res = app.post("/api/v1/auth/logout").send().await;
+		assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 	}
 
 	#[tokio::test]
-	async fn register_user_without_failure() {
-		todo!()
+	async fn register_user_unclaimed_server() {
+		unimplemented!()
 	}
 
 	#[tokio::test]
-	async fn register_user_with_forbidden_failure() {
-		todo!()
-	}
+	async fn register_user_failure_already_claimed() {
+		let mock_state = AppState::_mock();
+		let router = get_test_router(mock_state.clone());
+		let app = TestClient::new(router);
 
-	#[tokio::test]
-	async fn register_user_with_unauthorized_failure() {
-		todo!()
-	}
+		let mock_store = mock_state.mock_store.clone().unwrap();
+		let client = mock_state.db.clone();
 
-	#[tokio::test]
-	async fn register_user_with_unexpected_failure() {
-		todo!()
+		mock_store
+			.expect(
+				client.user().find_first(vec![]),
+				Some(fake_prisma_user("username")),
+			)
+			.await;
+
+		let res = app
+			.post("/api/v1/auth/register")
+			.json(&json!({"username": "other_username", "password": "password"}))
+			.send()
+			.await;
+
+		assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 	}
 }
